@@ -1,0 +1,166 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include <string.h>
+#include <ctype.h>
+#include <dirent.h>
+#include <fcntl.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <sys/wait.h>
+
+int xCom(char * path, char * args, int bg) { //eXecute COMand
+	
+	
+	/* move this into xCom	
+	int spaces;
+	for( spaces = 0, i = 0; i < strlen(args); i++ ) {
+		if(args[i] == ' ') spaces++;
+	}
+	#ifdef DEBUG_MODE 
+	printf("Args: %d\n", spaces);
+	#endif
+
+	args = strtok(args, " ");	
+	char ** argArr = calloc(spaces, sizeof(char *));
+	i = 0;
+	while(args != NULL) {
+		argArr[i] = calloc(64, sizeof(char));
+		strcpy(argArr[i], args);
+		args = strtok(NULL, " ");
+		i++;
+	}
+	*/
+
+	int pid = fork();
+	
+	if(pid == 0) { //Child
+			
+	}
+	else if( pid > 0 ){ //Parent
+		if(bg == 0) {
+			int status;
+			waitpid( pid, &status, 0 );	
+			return(status);
+		}
+	}
+	else { //error catching
+		fprintf(stderr, "ERROR with Fork\n");	
+	}	
+
+	return 1;
+};
+
+char * findCommand(char * com) {
+	char * env = getenv("MYPATH");
+	char * path = calloc(1, strlen(env) + 1);
+	strcpy(path, env);
+	char * paths = strtok(path, ":");
+	while(paths != NULL) {
+		printf("%s\n", paths);
+		char * wholePath = calloc(1, FILENAME_MAX);
+		strcat( wholePath, paths  );
+		strcat( wholePath, "/"  );
+		strcat( wholePath, com  );
+		struct stat status;
+		int rc = lstat(wholePath, &status);
+		if(rc == 0 && status.st_mode & S_IXUSR) {
+			free(path);
+			return(wholePath);
+		}
+		paths = strtok(NULL, ":");
+	}
+	free(paths);
+	free(paths);
+	return(NULL);
+}
+
+int main() {
+
+	char cDir[FILENAME_MAX]; //buffer var to store current directory
+	char * input = calloc(1, FILENAME_MAX); //buffer var to hold input commands
+
+	while(1) {	
+		if(getcwd(cDir, FILENAME_MAX) != NULL) {
+			printf("%s$ ", cDir);
+			int bg; //var to save if the command should be run in the background	
+			fgets(input, 1025, stdin); //get the user's command
+			if(input == NULL) {
+				continue;
+			}
+			
+			char * last = input + strlen(input);
+			if(*last == '\n') {
+				*last  = '\0';
+			}
+			last --;
+			if(*last == '&') {
+				*last = '\0';
+				bg = 1;
+			}			
+
+			//check for pipe here
+			char * checkPipe = input;
+			char ** commands;
+			int pipe = 0; //0 if no pipe, 1 if pipe
+			if((checkPipe = strrchr(checkPipe, '|')) != NULL) {
+				pipe++;	
+				commands = calloc(2, sizeof(char *));
+				char * ptr = checkPipe;
+				ptr --;
+				*ptr = '\0';
+				checkPipe+=2;
+				commands[0] = calloc(1, strlen(input) + 1);
+				strcpy(commands[0], input);
+				commands[1] = calloc(1, strlen(checkPipe) + 1);
+				strcpy(commands[1], checkPipe);
+			}
+			else {
+			printf("first\n");
+				commands = calloc(1, sizeof(char *));
+				commands[0] = calloc(1, strlen(input)+1);
+				strcpy(commands[0], input);
+			}
+			printf("second\n");
+			free(input);
+			
+			int i;
+			char ** mainComs = calloc(pipe + 1, sizeof(char *));
+			char ** mainArgs = calloc(pipe + 1, sizeof(char *));
+			char ** locations = calloc(pipe + 1, sizeof(char *));
+			for(i = 0; i < pipe; i++) {
+				
+				char * com = strtok(commands[i], " ");
+				char * args = commands[i]+strlen(com)+1;		
+				
+				mainComs[i] = calloc(1, sizeof(com));
+				mainArgs[i] = calloc(1, sizeof(args));				
+		
+				strcpy(mainComs[i], com);
+				strcpy(mainArgs[i], args);			
+				
+			
+				if(strcmp(mainComs[i], "cd")) {
+					//cd stuff here
+				}
+				else {
+					locations[i] = findCommand(mainComs[i]);
+					if(locations[i] == NULL) {
+						printf("COMMAND  \"%s\" NOT FOUND\n", mainComs[i]);
+						break;
+					}
+					else {
+					}
+
+				}
+			}
+		}
+		else {
+			fprintf(stderr, "SOMETHING WENT WRONG\n");
+			return EXIT_FAILURE;
+		}
+		
+	}
+
+	return EXIT_SUCCESS;
+}
